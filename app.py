@@ -1,4 +1,6 @@
+import base64
 import os
+import pathlib
 import re
 import uuid
 
@@ -29,18 +31,23 @@ STYLE = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
+/* Palette taken from the logo: navy wordmark, teal secondary, white ground.
+   Committed to a single light theme rather than shipping a half-tuned dark
+   variant, since the logo itself is drawn for a light background. */
 :root {
-  --bg: #131417;
-  --surface: #1E2025;
-  --surface-2: #272A31;
-  --border: rgba(255,255,255,0.14);
-  --text: #ECEAE4;
-  --muted: #93969E;
-  --accent: #FFB454;
-  --accent-ink: #1A1409;
-  --critical: #FF6B6B;
-  --critical-dim: rgba(255,107,107,0.14);
-  --accent-dim: rgba(255,180,84,0.14);
+  --bg: #F5F8FA;
+  --surface: #FFFFFF;
+  --surface-2: #EDF3F6;
+  --border: rgba(18,52,77,0.14);
+  --border-strong: rgba(18,52,77,0.26);
+  --text: #12344D;
+  --muted: #5D7C8E;
+  --accent: #1798AD;
+  --accent-deep: #1B4F72;
+  --accent-ink: #FFFFFF;
+  --critical: #C4453B;
+  --critical-dim: rgba(196,69,59,0.10);
+  --accent-dim: rgba(23,152,173,0.10);
 }
 
 html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
@@ -58,6 +65,9 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
   margin-bottom: 1.4rem;
 }
 .brandbar .mark { flex: 0 0 auto; }
+.brandbar .logo { height: 40px; width: auto; mix-blend-mode: multiply; }
+.brandhero .logo { height: 74px; width: auto; mix-blend-mode: multiply; }
+.brandhero .names { display: none; }
 .brandbar .names { display: flex; flex-direction: column; line-height: 1.25; }
 .brandbar .wordmark {
   font-weight: 600;
@@ -78,7 +88,7 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   color: var(--accent);
-  border: 1px solid rgba(255,180,84,0.35);
+  border: 1px solid rgba(23,152,173,0.40);
   border-radius: 6px;
   padding: 0.25rem 0.55rem;
 }
@@ -137,7 +147,7 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 }
 .panel.escalated .panel-label { color: var(--critical); }
 .panel code {
-  background: rgba(255,255,255,0.08);
+  background: var(--surface-2);
   color: var(--text);
   padding: 0.1em 0.35em;
   border-radius: 4px;
@@ -146,7 +156,7 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 }
 
 /* ---- sidebar ---- */
-[data-testid="stSidebar"] { background: #101114; border-right: 1px solid var(--border); }
+[data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid var(--border); }
 [data-testid="stSidebar"] .sb-heading {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.68rem;
@@ -172,7 +182,7 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 
 /* ---- input ---- */
 [data-testid="stChatInput"] {
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface-2);
 }
@@ -212,7 +222,7 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
   text-align: left !important;
 }
 [data-testid="stMainBlockContainer"] [data-testid="stButton"] button:hover {
-  border-color: rgba(255,180,84,0.55);
+  border-color: rgba(23,152,173,0.55);
   color: var(--accent);
 }
 
@@ -244,7 +254,7 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 }
 [data-testid="stTextInput"] input {
   background: var(--surface-2);
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid var(--border-strong);
   color: var(--text);
   border-radius: 8px;
 }
@@ -257,7 +267,7 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
   border-radius: 8px;
   font-weight: 600;
 }
-[data-testid="stFormSubmitButton"] button:hover { background: #FFC77A; }
+[data-testid="stFormSubmitButton"] button:hover { background: #147F91; }
 .privacy {
   color: var(--muted);
   font-size: 0.8rem;
@@ -276,24 +286,41 @@ st.markdown(STYLE, unsafe_allow_html=True)
 # Kept on one line: st.markdown renders indented HTML as a code block.
 MARK = (
     '<svg class="mark" width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">'
-    '<rect x="0.75" y="0.75" width="32.5" height="32.5" rx="8" fill="rgba(255,180,84,0.10)" '
-    'stroke="rgba(255,180,84,0.42)" stroke-width="1.5"/>'
-    '<path d="M8 17h6.5" stroke="#FFB454" stroke-width="2.2" stroke-linecap="round"/>'
-    '<path d="M14.5 17c3.4 0 3.6-5 7-5" stroke="#FFB454" stroke-width="2.2" '
+    '<rect x="0.75" y="0.75" width="32.5" height="32.5" rx="8" fill="rgba(23,152,173,0.10)" '
+    'stroke="rgba(23,152,173,0.40)" stroke-width="1.5"/>'
+    '<path d="M8 17h6.5" stroke="#1B4F72" stroke-width="2.2" stroke-linecap="round"/>'
+    '<path d="M14.5 17c3.4 0 3.6-5 7-5" stroke="#1798AD" stroke-width="2.2" '
     'stroke-linecap="round" fill="none"/>'
-    '<path d="M14.5 17c3.4 0 3.6 5 7 5" stroke="#FF6B6B" stroke-width="2.2" '
+    '<path d="M14.5 17c3.4 0 3.6 5 7 5" stroke="#C4453B" stroke-width="2.2" '
     'stroke-linecap="round" fill="none"/>'
-    '<circle cx="24.6" cy="12" r="2.4" fill="#FFB454"/>'
-    '<circle cx="24.6" cy="22" r="2.4" fill="none" stroke="#FF6B6B" stroke-width="2.2"/>'
+    '<circle cx="24.6" cy="12" r="2.4" fill="#1798AD"/>'
+    '<circle cx="24.6" cy="22" r="2.4" fill="none" stroke="#C4453B" stroke-width="2.2"/>'
     "</svg>"
 )
+
+# Uses assets/logo.png when present, so the supplied lockup can be dropped in
+# without a code change; falls back to the inline mark otherwise.
+LOGO_PATH = pathlib.Path(__file__).parent / "assets" / "logo.png"
+
+
+def brand_lockup() -> str:
+    if LOGO_PATH.exists():
+        encoded = base64.b64encode(LOGO_PATH.read_bytes()).decode()
+        return (
+            f'<img class="logo" src="data:image/png;base64,{encoded}" '
+            'alt="DanTech Helpdesk"/>'
+        )
+    return (
+        f'{MARK}<div class="names"><span class="wordmark">DanTech</span>'
+        '<span class="product">IT Helpdesk Agent</span></div>'
+    )
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$")
 
 
 def landing() -> None:
     """Welcome screen. Runs instead of the chat until we know who is asking."""
-    st.markdown(f'<div class="welcome">{MARK}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="welcome brandhero">{brand_lockup()}</div>', unsafe_allow_html=True)
     st.markdown(
         "<h1>Welcome to the DanTech helpdesk</h1>"
         "<p>Tell me who you are and describe your problem in plain language. "
@@ -353,9 +380,7 @@ if st.session_state.get("thread_id") != thread_id:
 ref = ticket_ref(thread_id)
 
 st.markdown(
-    f'<div class="brandbar">{MARK}'
-    f'<div class="names"><span class="wordmark">DanTech</span>'
-    f'<span class="product">IT Helpdesk Agent</span></div>'
+    f'<div class="brandbar">{brand_lockup()}'
     f'<span class="ticket">{ref}</span></div>',
     unsafe_allow_html=True,
 )
@@ -438,15 +463,17 @@ EXAMPLES = [
     "Nobody on the 3rd floor can print",
 ]
 
-if not st.session_state.display_history:
+# Resolved before the examples render: st.chat_input pins itself to the bottom
+# regardless of call order, and the examples must not still be on screen while
+# the message that dismissed them is being answered.
+issue = st.chat_input("Describe your IT issue") or st.session_state.pop("pending", None)
+
+if not st.session_state.display_history and not issue:
     st.markdown('<div class="empty-label">Common issues</div>', unsafe_allow_html=True)
     for i, example in enumerate(EXAMPLES):
         if st.button(example, key=f"eg{i}", use_container_width=True):
             st.session_state.pending = example
             st.rerun()
-
-# An example click and the chat box feed the same path.
-issue = st.chat_input("Describe your IT issue") or st.session_state.pop("pending", None)
 
 if issue:
     st.session_state.display_history.append({"role": "user", "content": issue})
