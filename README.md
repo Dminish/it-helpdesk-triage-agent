@@ -1,7 +1,5 @@
 # DanTech IT Helpdesk Agent
 
-**[Live demo](https://it-triage-agent-by-dan.streamlit.app/)**
-
 A LangGraph agent that triages IT tickets like a Tier 1 technician: it
 classifies the issue, decides whether to solve it or hand it to a human, and
 answers from a vector-searched manual only when it is confident enough to be
@@ -11,9 +9,6 @@ The point of the project is the **routing decision**, not the chat. A generic
 RAG pipeline forces every question through retrieval and answers whatever comes
 back. This one takes a different path depending on what it is looking at, and
 refuses to answer when the manuals do not actually cover the question.
-
-Try `"wifi connects but nothing loads"` for the answer path and `"the production
-server room caught fire"` for an escalation.
 
 ![A floor-wide printer outage classified as Hardware, critical, and escalated to
 the human queue instead of answered from the manuals](docs/screenshot.png)
@@ -151,9 +146,6 @@ server room caught fire"` for severity escalation, and `"my desk chair squeaks"`
 for the low-confidence escalation. Escalations append to `escalations.csv`.
 
 ## Deploying
-
-The [live demo](https://it-triage-agent-by-dan.streamlit.app/) runs this
-configuration.
 
 The agent runs on a local model by default, which needs hardware a free host
 does not have. `LLM_PROVIDER=openai` swaps in a hosted model instead;
