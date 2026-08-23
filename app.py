@@ -226,8 +226,89 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
   color: var(--accent);
 }
 
+/* ---- motion (intensity 7: entry reveals and tactile feedback, no hijacking) ---- */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes drawRule {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+[data-testid="stChatMessage"] {
+  animation: riseIn 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.panel {
+  position: relative;
+  animation: riseIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  left: -3px; top: 0; bottom: 0;
+  width: 3px;
+  background: inherit;
+  transform-origin: top;
+  animation: drawRule 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.meta-row { animation: riseIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both; }
+.brandbar { animation: riseIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.lede { animation: riseIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both; }
+
+/* Staggered so the example prompts cascade rather than snapping in together. */
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] {
+  animation: riseIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stButton"]:nth-of-type(1) { animation-delay: 0.06s; }
+[data-testid="stMainBlockContainer"] [data-testid="stButton"]:nth-of-type(2) { animation-delay: 0.12s; }
+[data-testid="stMainBlockContainer"] [data-testid="stButton"]:nth-of-type(3) { animation-delay: 0.18s; }
+
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] button,
+[data-testid="stFormSubmitButton"] button,
+.brandbar .ticket {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.22s ease, background 0.22s ease, color 0.22s ease;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] button:hover,
+[data-testid="stFormSubmitButton"] button:hover { transform: translateY(-1px); }
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] button:active,
+[data-testid="stFormSubmitButton"] button:active { transform: translateY(0) scale(0.995); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="stChatMessage"], .panel, .panel::before, .meta-row, .brandbar,
+  .lede, [data-testid="stMainBlockContainer"] [data-testid="stButton"] {
+    animation: none !important;
+  }
+  [data-testid="stMainBlockContainer"] [data-testid="stButton"] button:hover,
+  [data-testid="stFormSubmitButton"] button:hover { transform: none; }
+}
+
 /* ---- landing ---- */
 .welcome { padding-top: 6vh; }
+.welcome .hero-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.9rem;
+}
+.welcome h1 { animation: riseIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+.welcome p { animation: riseIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both; }
+.formcard-title {
+  font-weight: 600;
+  margin-bottom: 0.9rem;
+  color: var(--text);
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome h1, .welcome p, [data-testid="stForm"] { animation: none !important; }
+}
+@media (max-width: 768px) {
+  .welcome { padding-top: 2.5vh; }
+  .brandhero .logo { height: 56px; }
+}
 .welcome h1 {
   font-size: 2rem;
   font-weight: 600;
@@ -259,7 +340,13 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
   border-radius: 8px;
 }
 [data-testid="stTextInput"] label { color: var(--muted) !important; font-size: 0.85rem; }
-[data-testid="stForm"] { border: none; padding: 0; }
+[data-testid="stForm"] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.4rem 1.4rem 0.9rem 1.4rem;
+  animation: riseIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+}
 [data-testid="stFormSubmitButton"] button {
   background: var(--accent);
   color: var(--accent-ink);
@@ -319,43 +406,59 @@ EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$")
 
 
 def landing() -> None:
-    """Welcome screen. Runs instead of the chat until we know who is asking."""
-    st.markdown(f'<div class="welcome brandhero">{brand_lockup()}</div>', unsafe_allow_html=True)
-    st.markdown(
-        "<h1>Welcome to the DanTech helpdesk</h1>"
-        "<p>Tell me who you are and describe your problem in plain language. "
-        "I will look up a fix in our support manuals, or raise a ticket with a "
-        "human technician if it needs one.</p>",
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="steps">Before we start</div>', unsafe_allow_html=True)
+    """Welcome screen. Runs instead of the chat until we know who is asking.
 
-    with st.form("signin", clear_on_submit=False):
-        name = st.text_input("Your name", placeholder="Danishvaran K")
-        email = st.text_input("Work email", placeholder="you@company.com")
-        submitted = st.form_submit_button("Start a ticket", use_container_width=True)
+    Deliberately asymmetric: the message column is wider than the form, and the
+    two are offset rather than stacked centre. The conversation view stays on a
+    calmer grid, where predictability matters more than composition.
+    """
+    left, _, right = st.columns([1.15, 0.12, 1], vertical_alignment="center")
 
-    if submitted:
-        errors = []
-        if not name.strip():
-            errors.append("Please enter your name.")
-        if not EMAIL_PATTERN.match(email.strip()):
-            errors.append("Please enter a valid email address.")
-        if errors:
-            for message in errors:
-                st.error(message)
-        else:
-            st.session_state.user_name = name.strip()
-            st.session_state.user_email = email.strip()
-            st.rerun()
+    with left:
+        st.markdown(
+            f'<div class="welcome brandhero">{brand_lockup()}'
+            '<div class="hero-eyebrow">Tier 1 support</div>'
+            "<h1>Describe the problem.<br/>I will take it from there.</h1>"
+            "<p>Tell me what is wrong in plain language. I will look up a fix in "
+            "our support manuals, or raise a ticket with a human technician if it "
+            "needs one.</p></div>",
+            unsafe_allow_html=True,
+        )
 
-    st.markdown(
-        '<p class="privacy">Your email is used to send you a copy of any ticket '
-        "raised for you, and is stored alongside that ticket in the queue log. "
-        "This is a portfolio project running against a synthetic manual set, not "
-        "a real support desk.</p>",
-        unsafe_allow_html=True,
-    )
+    with right:
+        # The card is the form element itself: Streamlit widgets cannot be
+        # wrapped in custom HTML, so a hand-rolled card div would render empty
+        # with the real fields floating below it.
+        with st.form("signin", clear_on_submit=False):
+            st.markdown(
+                '<div class="formcard-title">Start a ticket</div>',
+                unsafe_allow_html=True,
+            )
+            name = st.text_input("Your name", placeholder="Danishvaran K")
+            email = st.text_input("Work email", placeholder="you@company.com")
+            submitted = st.form_submit_button("Start a ticket", use_container_width=True)
+
+        if submitted:
+            errors = []
+            if not name.strip():
+                errors.append("Please enter your name.")
+            if not EMAIL_PATTERN.match(email.strip()):
+                errors.append("Please enter a valid email address.")
+            if errors:
+                for message in errors:
+                    st.error(message)
+            else:
+                st.session_state.user_name = name.strip()
+                st.session_state.user_email = email.strip()
+                st.rerun()
+
+        st.markdown(
+            '<p class="privacy">Your email is used to send you a copy of any '
+            "ticket raised for you, and is stored alongside that ticket in the "
+            "queue log. This is a portfolio project running against a synthetic "
+            "manual set, not a real support desk.</p>",
+            unsafe_allow_html=True,
+        )
 
 
 if "user_email" not in st.session_state:
