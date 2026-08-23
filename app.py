@@ -535,8 +535,8 @@ with st.sidebar:
     )
 
 st.markdown(
-    '<p class="lede">Tell me what is broken. I will either walk you through the '
-    "fix or get it to someone who can.</p>",
+    '<p class="lede">Something not working? Tell me what is going on and I will '
+    "sort it or find someone who will.</p>",
     unsafe_allow_html=True,
 )
 
