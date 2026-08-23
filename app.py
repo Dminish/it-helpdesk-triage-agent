@@ -535,10 +535,8 @@ with st.sidebar:
     )
 
 st.markdown(
-    '<p class="lede">Describe your issue in plain language. I will classify it, '
-    "look up a fix in the support manuals, and hand it to a human technician if "
-    "it is urgent or outside what the manuals cover. Follow-up questions stay on "
-    "the same ticket.</p>",
+    '<p class="lede">Tell me what is broken. I will either walk you through the '
+    "fix or get it to someone who can.</p>",
     unsafe_allow_html=True,
 )
 
@@ -585,7 +583,7 @@ EXAMPLES = [
 # Resolved before the examples render: st.chat_input pins itself to the bottom
 # regardless of call order, and the examples must not still be on screen while
 # the message that dismissed them is being answered.
-issue = st.chat_input("Describe your IT issue") or st.session_state.pop("pending", None)
+issue = st.chat_input("What is going wrong?") or st.session_state.pop("pending", None)
 
 if not st.session_state.display_history and not issue:
     st.markdown('<div class="empty-label">Common issues</div>', unsafe_allow_html=True)
