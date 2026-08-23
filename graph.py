@@ -23,6 +23,8 @@ from langgraph.graph.message import add_messages
 from pinecone import Pinecone
 from pydantic import BaseModel, Field
 
+from notify import send_ticket_email
+
 ESCALATION_LOG = "escalations.csv"
 CHECKPOINT_DB = "checkpoints.sqlite"
 INDEX_NAME = os.environ.get("PINECONE_INDEX", "it-helpdesk-manuals")
@@ -101,6 +103,8 @@ class AgentState(TypedDict):
     context: str
     answer: str
     escalated: bool
+    notified: bool
+    notify_detail: str
 
 
 classify_prompt = ChatPromptTemplate.from_messages([
@@ -211,7 +215,10 @@ def turn_meta(state: AgentState, escalated: bool) -> dict:
 
 
 def escalate(state: AgentState, config: RunnableConfig) -> dict:
-    ref = ticket_ref(config["configurable"]["thread_id"])
+    configurable = config["configurable"]
+    ref = ticket_ref(configurable["thread_id"])
+    requester = configurable.get("user_name", "")
+    requester_email = configurable.get("user_email", "")
 
     if state["severity"] == "critical":
         trigger = "critical severity"
@@ -228,24 +235,43 @@ def escalate(state: AgentState, config: RunnableConfig) -> dict:
             f"{ref} for a human technician to pick up."
         )
 
+    issue = state["messages"][-1].content
+
     is_new = not os.path.exists(ESCALATION_LOG)
     with open(ESCALATION_LOG, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if is_new:
-            writer.writerow(
-                ["ticket", "timestamp", "category", "trigger", "issue", "reasoning"]
-            )
+            writer.writerow([
+                "ticket", "timestamp", "requester", "email",
+                "category", "trigger", "issue", "reasoning",
+            ])
         writer.writerow([
             ref,
             datetime.now(timezone.utc).isoformat(),
+            requester,
+            requester_email,
             state["category"],
             trigger,
-            state["messages"][-1].content,
+            issue,
             state["reasoning"],
         ])
+
+    # Queue log is written first: if mail fails, the ticket still exists.
+    notified, notify_detail = send_ticket_email(
+        requester_email, requester, ref, state["category"], trigger, issue
+    )
+    if requester_email:
+        answer_text += (
+            f"\n\nI have emailed a copy to {requester_email}."
+            if notified
+            else "\n\nI could not send the email confirmation, but the ticket is raised."
+        )
+
     return {
         "escalated": True,
         "answer": answer_text,
+        "notified": notified,
+        "notify_detail": notify_detail,
         "messages": [
             AIMessage(content=answer_text, additional_kwargs=turn_meta(state, True))
         ],

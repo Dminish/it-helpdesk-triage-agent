@@ -92,6 +92,26 @@ Answerable queries never scored below 0.459 and unanswerable ones never above
 changing the embedding model or loading real manuals rather than assuming the
 number transfers.
 
+## Tickets and notifications
+
+The app opens on a welcome screen that collects a name and email, so a ticket
+has an owner. Each conversation carries a `DT-XXXXXX` reference shown in the
+header and sidebar.
+
+When a ticket is escalated, the requester is emailed a copy. Mail goes through
+stdlib `smtplib`, configured by the `SMTP_*` variables in `.env.example`; for
+Gmail that means an app password rather than an account password.
+
+**With `SMTP_HOST` unset, nothing is sent and the reply says so.** That is the
+default, and deliberate: the queue log is written before mail is attempted, so a
+mail failure can never lose a ticket, and the app stays usable without mail
+configured.
+
+Two cautions if you deploy this publicly. A form that emails whatever address is
+typed into it is an open relay, so gate sending or keep it local. And storing
+names and emails from strangers is a liability with no upside for a portfolio
+project.
+
 ## Design notes
 
 **Multi-turn handling.** The classifier reads the last 5 messages, so a

@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 
 import streamlit as st
@@ -180,6 +181,56 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 [data-testid="stChatInputSubmitButton"] svg { fill: var(--accent-ink) !important; }
 
 [data-testid="stExpander"] { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+
+/* ---- landing ---- */
+.welcome { padding-top: 6vh; }
+.welcome h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.015em;
+  margin: 1.2rem 0 0.6rem 0;
+}
+.welcome p {
+  color: var(--muted);
+  font-size: 0.97rem;
+  line-height: 1.6;
+  max-width: 52ch;
+  margin-bottom: 0.4rem;
+}
+.welcome .steps {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin: 1.6rem 0 0.4rem 0;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+}
+[data-testid="stTextInput"] input {
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: var(--text);
+  border-radius: 8px;
+}
+[data-testid="stTextInput"] label { color: var(--muted) !important; font-size: 0.85rem; }
+[data-testid="stForm"] { border: none; padding: 0; }
+[data-testid="stFormSubmitButton"] button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+[data-testid="stFormSubmitButton"] button:hover { background: #FFC77A; }
+.privacy {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin-top: 1rem;
+  max-width: 52ch;
+}
 </style>
 """
 st.markdown(STYLE, unsafe_allow_html=True)
@@ -196,6 +247,53 @@ MARK = (
     '<circle cx="23.4" cy="11.4" r="2.1" fill="#FFB454"/>'
     "</svg>"
 )
+
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$")
+
+
+def landing() -> None:
+    """Welcome screen. Runs instead of the chat until we know who is asking."""
+    st.markdown(f'<div class="welcome">{MARK}</div>', unsafe_allow_html=True)
+    st.markdown(
+        "<h1>Welcome to the DanTech helpdesk</h1>"
+        "<p>Tell me who you are and describe your problem in plain language. "
+        "I will look up a fix in our support manuals, or raise a ticket with a "
+        "human technician if it needs one.</p>",
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="steps">Before we start</div>', unsafe_allow_html=True)
+
+    with st.form("signin", clear_on_submit=False):
+        name = st.text_input("Your name", placeholder="Danishvaran K")
+        email = st.text_input("Work email", placeholder="you@company.com")
+        submitted = st.form_submit_button("Start a ticket", use_container_width=True)
+
+    if submitted:
+        errors = []
+        if not name.strip():
+            errors.append("Please enter your name.")
+        if not EMAIL_PATTERN.match(email.strip()):
+            errors.append("Please enter a valid email address.")
+        if errors:
+            for message in errors:
+                st.error(message)
+        else:
+            st.session_state.user_name = name.strip()
+            st.session_state.user_email = email.strip()
+            st.rerun()
+
+    st.markdown(
+        '<p class="privacy">Your email is used to send you a copy of any ticket '
+        "raised for you, and is stored alongside that ticket in the queue log. "
+        "This is a portfolio project running against a synthetic manual set, not "
+        "a real support desk.</p>",
+        unsafe_allow_html=True,
+    )
+
+
+if "user_email" not in st.session_state:
+    landing()
+    st.stop()
 
 if "thread" not in st.query_params:
     st.query_params["thread"] = str(uuid.uuid4())
@@ -225,7 +323,12 @@ st.markdown(
 with st.sidebar:
     # No monogram here: it already sits in the header a few hundred pixels away.
     st.markdown('<div class="sb-heading first">This ticket</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="sb-item">{ref}<small>Bookmark this page to return to it</small></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="sb-item">{ref}<small>Bookmark this page to return to it</small></div>'
+        f'<div class="sb-item">{st.session_state.user_name}'
+        f'<small>{st.session_state.user_email}</small></div>',
+        unsafe_allow_html=True,
+    )
 
     if st.button("Start a new ticket", use_container_width=True):
         st.query_params["thread"] = str(uuid.uuid4())
@@ -300,7 +403,11 @@ if issue:
         with st.spinner("Triaging..."):
             result = graph.invoke(
                 {"messages": [HumanMessage(content=issue)]},
-                config={"configurable": {"thread_id": thread_id}},
+                config={"configurable": {
+                    "thread_id": thread_id,
+                    "user_name": st.session_state.user_name,
+                    "user_email": st.session_state.user_email,
+                }},
             )
 
         turn = {
