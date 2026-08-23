@@ -1,0 +1,8 @@
+langgraph
+langgraph-checkpoint-sqlite
+langchain
+langchain-ollama
+langchain-openai
+pinecone
+streamlit
+python-dotenv
