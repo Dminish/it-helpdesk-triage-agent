@@ -52,7 +52,7 @@ queue log.
 | | |
 |---|---|
 | Orchestration | LangGraph (`StateGraph`, conditional edges, `SqliteSaver`) |
-| LLM | `qwen2.5` via Ollama, running locally |
+| LLM | `qwen2.5` via Ollama locally, or `gpt-4o-mini` when deployed |
 | Embeddings | OpenAI `text-embedding-3-small` |
 | Vector store | Pinecone (serverless, filtered by predicted category) |
 | UI | Streamlit |
@@ -64,20 +64,19 @@ Account, written for this demo. It is not a real knowledge base.
 
 **Classifier** (`python eval_classifier.py`, 19 labelled tickets):
 
-| | |
-|---|---|
-| category | 18/19 |
-| severity | 18/19 |
+| | `qwen2.5` (local) | `gpt-4o-mini` (hosted) |
+|---|---|---|
+| category | 18/19 | 18/19 |
+| severity | 18/19 | 19/19 |
 
-Two cases are left deliberately failing, as markers rather than relabelled to
-flatter the score:
+Both models miss the same case, and it is a genuine judgement call left failing
+as a marker rather than relabelled to flatter the score: *"attacker has admin
+access to the domain controller"* is labelled `Account`, both models say
+`Network`. Severity is `critical` either way, so routing is unaffected.
 
-- *"attacker has admin access to the domain controller"* is labelled `Account`,
-  the model says `Network`. Severity is `critical` either way, so routing is
-  unaffected.
-- *"nobody on the 3rd floor can print"* is labelled `critical` because it
-  affects many users; the model says `normal`. It appears to weigh printing as
-  low-stakes regardless of scope, which is defensible.
+The local model additionally calls *"nobody on the 3rd floor can print"*
+`normal` where the label says `critical`; it appears to weigh printing as
+low-stakes regardless of scope, which is defensible. `gpt-4o-mini` gets it.
 
 **Retrieval threshold** (`python eval_retrieval.py`, 23 labelled queries):
 
@@ -146,6 +145,32 @@ Try `"my keyboard keys are sticking"` for the answer path, `"the production
 server room caught fire"` for severity escalation, and `"my desk chair squeaks"`
 for the low-confidence escalation. Escalations append to `escalations.csv`.
 
+## Deploying
+
+The agent runs on a local model by default, which needs hardware a free host
+does not have. Set `LLM_PROVIDER=openai` and it uses `gpt-4o-mini` instead;
+embeddings and the vector store are unchanged, so the calibrated retrieval
+threshold still applies.
+
+On [Streamlit Community Cloud](https://share.streamlit.io), point it at
+`app.py` and add these under **Secrets**:
+
+```toml
+OPENAI_API_KEY = "sk-..."
+PINECONE_API_KEY = "pcsk_..."
+PINECONE_INDEX = "it-helpdesk-manuals"
+LLM_PROVIDER = "openai"
+```
+
+Run `python ingest.py` locally once beforehand; the deployed app reads the
+Pinecone index but does not populate it.
+
+Two things to know about a public deployment. Its filesystem is ephemeral, so
+`checkpoints.sqlite` and `escalations.csv` reset when the app sleeps or
+redeploys, and conversation links stop resolving. And every visitor spends your
+OpenAI credit, so set a usage limit on the API key rather than leaving it
+uncapped.
+
 ## Limitations
 
 - The manual corpus is synthetic and small; retrieval quality reflects that.
@@ -155,4 +180,6 @@ for the low-confidence escalation. Escalations append to `escalations.csv`.
   marketing department" being treated as a single-user issue, but similar gaps
   likely remain.
 - No auth, no rate limiting, single tenant. It is a demonstration, not a
-  deployment.
+  production service.
+- Deployed on a free host, conversation state does not survive the app
+  sleeping, since the filesystem is ephemeral.

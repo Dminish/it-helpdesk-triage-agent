@@ -15,7 +15,7 @@ from typing import Annotated, Literal, TypedDict
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -30,7 +30,19 @@ INDEX_NAME = os.environ.get("PINECONE_INDEX", "it-helpdesk-manuals")
 # changing the embedding model or the manual corpus; the gap is only 0.041 wide.
 CONFIDENCE_THRESHOLD = 0.44
 
-llm = ChatOllama(model="qwen2.5", temperature=0)
+# Local Ollama by default; hosted OpenAI when deployed, where there is no GPU to
+# run a local model on. Embeddings always come from OpenAI, so the retrieval
+# threshold above holds either way -- but the classifier numbers in the README
+# were measured on qwen2.5, so re-run eval_classifier.py if you switch.
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama").lower()
+
+if LLM_PROVIDER == "openai":
+    llm = ChatOpenAI(model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
+elif LLM_PROVIDER == "ollama":
+    llm = ChatOllama(model=os.environ.get("OLLAMA_MODEL", "qwen2.5"), temperature=0)
+else:
+    raise ValueError(f"LLM_PROVIDER must be 'ollama' or 'openai', got {LLM_PROVIDER!r}")
+
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 pinecone_index = Pinecone(api_key=os.environ["PINECONE_API_KEY"]).Index(INDEX_NAME)
 

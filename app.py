@@ -1,9 +1,18 @@
+import os
 import uuid
 
 import streamlit as st
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Streamlit Community Cloud supplies config through st.secrets rather than a
+# .env file. Mirror it into the environment before graph.py reads it at import.
+try:
+    for _key, _value in st.secrets.items():
+        os.environ.setdefault(_key, str(_value))
+except Exception:  # no secrets.toml locally, which is the normal case
+    pass
 
 from langchain_core.messages import HumanMessage
 
