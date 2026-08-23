@@ -64,10 +64,10 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
   border-bottom: 1px solid var(--border);
   margin-bottom: 1.4rem;
 }
-.brandbar .mark { flex: 0 0 auto; }
-.brandbar .logo { height: 40px; width: auto; mix-blend-mode: multiply; }
-.brandhero .logo { height: 74px; width: auto; mix-blend-mode: multiply; }
+.brandbar .mark { flex: 0 0 auto; height: 38px; width: auto; }
+.brandhero .logo { height: 132px; width: auto; margin-bottom: 0.5rem; }
 .brandhero .names { display: none; }
+.brandhero .mark { height: 64px; }
 .brandbar .names { display: flex; flex-direction: column; line-height: 1.25; }
 .brandbar .wordmark {
   font-weight: 600;
@@ -385,20 +385,36 @@ MARK = (
     "</svg>"
 )
 
-# Uses assets/logo.png when present, so the supplied lockup can be dropped in
-# without a code change; falls back to the inline mark otherwise.
-LOGO_PATH = pathlib.Path(__file__).parent / "assets" / "logo.png"
+ASSETS = pathlib.Path(__file__).parent / "assets"
+# The full lockup is a vertical stack, so its wordmark is unreadable at header
+# height. The shield alone is used there, with the name set in HTML beside it;
+# the lockup gets the hero, where it has room.
+LOCKUP_PATH = ASSETS / "logo.png"
+MARK_PATH = ASSETS / "mark.png"
 
 
-def brand_lockup() -> str:
-    if LOGO_PATH.exists():
-        encoded = base64.b64encode(LOGO_PATH.read_bytes()).decode()
-        return (
-            f'<img class="logo" src="data:image/png;base64,{encoded}" '
-            'alt="DanTech Helpdesk"/>'
-        )
+@st.cache_data
+def _encode(path_str: str, _mtime: float) -> str:
+    """_mtime is part of the cache key, not used in the body: without it the
+    cache keeps serving the old bytes after the file on disk changes."""
+    return base64.b64encode(pathlib.Path(path_str).read_bytes()).decode()
+
+
+def _data_uri(path: pathlib.Path) -> str:
+    return f"data:image/png;base64,{_encode(str(path), path.stat().st_mtime)}"
+
+
+def brand_lockup(hero: bool = False) -> str:
+    if hero and LOCKUP_PATH.exists():
+        return f'<img class="logo" src="{_data_uri(LOCKUP_PATH)}" alt="DanTech Helpdesk"/>'
+
+    mark = (
+        f'<img class="mark" src="{_data_uri(MARK_PATH)}" alt=""/>'
+        if MARK_PATH.exists()
+        else MARK
+    )
     return (
-        f'{MARK}<div class="names"><span class="wordmark">DanTech</span>'
+        f'{mark}<div class="names"><span class="wordmark">DanTech</span>'
         '<span class="product">IT Helpdesk Agent</span></div>'
     )
 
@@ -416,7 +432,7 @@ def landing() -> None:
 
     with left:
         st.markdown(
-            f'<div class="welcome brandhero">{brand_lockup()}'
+            f'<div class="welcome brandhero">{brand_lockup(hero=True)}'
             '<div class="hero-eyebrow">Tier 1 support</div>'
             "<h1>Describe the problem.<br/>I will take it from there.</h1>"
             "<p>Tell me what is wrong in plain language. I will look up a fix in "
