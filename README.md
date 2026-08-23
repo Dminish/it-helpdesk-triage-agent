@@ -178,12 +178,12 @@ so they can live on different providers and different keys.
 
 ### Other models
 
-`OPENAI_BASE_URL` points the chat model at any OpenAI-compatible endpoint --
+`LLM_BASE_URL` points the chat model at any OpenAI-compatible endpoint --
 OpenRouter, Groq, Together, DeepSeek, a local vLLM -- so there is no per-vendor
 integration to add:
 
 ```bash
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
+LLM_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_MODEL=z-ai/glm-4.6
 LLM_API_KEY=<that provider's key>
 ```
@@ -191,6 +191,16 @@ LLM_API_KEY=<that provider's key>
 Set `LLM_API_KEY` rather than overwriting `OPENAI_API_KEY`: embeddings still go
 to OpenAI, so replacing that key breaks retrieval while the chat model keeps
 working, which is an annoying failure to diagnose.
+
+The variable is `LLM_BASE_URL`, **not** `OPENAI_BASE_URL`, and the distinction
+matters. `OPENAI_BASE_URL` is the OpenAI SDK's own environment variable, so
+setting it redirects every client built from that SDK, embeddings included.
+Pointing chat at a third-party gateway that way also sends `OPENAI_API_KEY` to
+that gateway, and retrieval starts returning 401 while chat keeps working.
+Worse, the LangChain-level `openai_api_base` attribute still reports the
+default in that state, so the object looks correctly configured while its
+underlying client is not. The embeddings client here pins its base URL
+explicitly so no stray environment variable can move it.
 
 The classifier needs a model that supports structured output. Anything without
 tool-calling or JSON-schema support fails schema validation rather than

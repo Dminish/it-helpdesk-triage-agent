@@ -37,15 +37,18 @@ CONFIDENCE_THRESHOLD = 0.44
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama").lower()
 
 if LLM_PROVIDER == "openai":
-    # OPENAI_BASE_URL points this at any OpenAI-compatible endpoint (OpenRouter,
+    # LLM_BASE_URL points this at any OpenAI-compatible endpoint (OpenRouter,
     # Groq, Together, DeepSeek, a local vLLM), which is why there is no
-    # per-vendor branch here. LLM_API_KEY exists because OPENAI_API_KEY is still
-    # needed for embeddings: overwriting it with a third-party key would break
-    # retrieval while the chat model kept working, which is a confusing failure.
+    # per-vendor branch here.
+    #
+    # Deliberately NOT named OPENAI_BASE_URL: that is the OpenAI SDK's own
+    # environment variable, so it would also redirect the embeddings client
+    # below, sending OPENAI_API_KEY to that third party and 401ing retrieval
+    # while chat kept working. LLM_API_KEY is separate for the same reason.
     llm = ChatOpenAI(
         model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
         temperature=0,
-        base_url=os.environ.get("OPENAI_BASE_URL") or None,
+        base_url=os.environ.get("LLM_BASE_URL") or None,
         api_key=os.environ.get("LLM_API_KEY") or os.environ["OPENAI_API_KEY"],
     )
 elif LLM_PROVIDER == "ollama":
@@ -53,7 +56,13 @@ elif LLM_PROVIDER == "ollama":
 else:
     raise ValueError(f"LLM_PROVIDER must be 'ollama' or 'openai', got {LLM_PROVIDER!r}")
 
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+# base_url pinned rather than left to default: the OpenAI SDK silently adopts
+# OPENAI_BASE_URL from the environment, so a stray value would redirect
+# embeddings (and this key) to whatever endpoint it names.
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",
+    base_url="https://api.openai.com/v1",
+)
 pinecone_index = Pinecone(api_key=os.environ["PINECONE_API_KEY"]).Index(INDEX_NAME)
 
 
