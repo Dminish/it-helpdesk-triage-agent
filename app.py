@@ -152,7 +152,14 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 1.4rem 0 0.5rem 0;
+  margin: 1.9rem 0 0.7rem 0;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+}
+[data-testid="stSidebar"] .sb-heading.first {
+  margin-top: 0.4rem;
+  padding-top: 0;
+  border-top: none;
 }
 [data-testid="stSidebar"] .sb-item {
   color: var(--text);
@@ -216,8 +223,8 @@ st.markdown(
 )
 
 with st.sidebar:
-    st.markdown(f"{MARK}", unsafe_allow_html=True)
-    st.markdown('<div class="sb-heading">This ticket</div>', unsafe_allow_html=True)
+    # No monogram here: it already sits in the header a few hundred pixels away.
+    st.markdown('<div class="sb-heading first">This ticket</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="sb-item">{ref}<small>Bookmark this page to return to it</small></div>', unsafe_allow_html=True)
 
     if st.button("Start a new ticket", use_container_width=True):
