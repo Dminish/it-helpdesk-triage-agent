@@ -30,14 +30,24 @@ INDEX_NAME = os.environ.get("PINECONE_INDEX", "it-helpdesk-manuals")
 # changing the embedding model or the manual corpus; the gap is only 0.041 wide.
 CONFIDENCE_THRESHOLD = 0.44
 
-# Local Ollama by default; hosted OpenAI when deployed, where there is no GPU to
-# run a local model on. Embeddings always come from OpenAI, so the retrieval
-# threshold above holds either way -- but the classifier numbers in the README
-# were measured on qwen2.5, so re-run eval_classifier.py if you switch.
+# Local Ollama by default; a hosted provider when deployed, where there is no GPU
+# to run a local model on. Embeddings always come from OpenAI, so the retrieval
+# threshold above holds whichever is picked -- but the classifier numbers in the
+# README are per-model, so re-run eval_classifier.py after switching.
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama").lower()
 
 if LLM_PROVIDER == "openai":
-    llm = ChatOpenAI(model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
+    # OPENAI_BASE_URL points this at any OpenAI-compatible endpoint (OpenRouter,
+    # Groq, Together, DeepSeek, a local vLLM), which is why there is no
+    # per-vendor branch here. LLM_API_KEY exists because OPENAI_API_KEY is still
+    # needed for embeddings: overwriting it with a third-party key would break
+    # retrieval while the chat model kept working, which is a confusing failure.
+    llm = ChatOpenAI(
+        model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+        temperature=0,
+        base_url=os.environ.get("OPENAI_BASE_URL") or None,
+        api_key=os.environ.get("LLM_API_KEY") or os.environ["OPENAI_API_KEY"],
+    )
 elif LLM_PROVIDER == "ollama":
     llm = ChatOllama(model=os.environ.get("OLLAMA_MODEL", "qwen2.5"), temperature=0)
 else:

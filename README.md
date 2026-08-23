@@ -165,6 +165,26 @@ LLM_PROVIDER = "openai"
 Run `python ingest.py` locally once beforehand; the deployed app reads the
 Pinecone index but does not populate it.
 
+### Other models
+
+`OPENAI_BASE_URL` points the chat model at any OpenAI-compatible endpoint --
+OpenRouter, Groq, Together, DeepSeek, a local vLLM -- so there is no per-vendor
+integration to add:
+
+```bash
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_MODEL=z-ai/glm-4.6
+LLM_API_KEY=<that provider's key>
+```
+
+Set `LLM_API_KEY` rather than overwriting `OPENAI_API_KEY`: embeddings still go
+to OpenAI, so replacing that key breaks retrieval while the chat model keeps
+working, which is an annoying failure to diagnose.
+
+The classifier needs a model that supports structured output. Anything without
+tool-calling or JSON-schema support fails schema validation rather than
+degrading gracefully, so run `eval_classifier.py` after switching.
+
 Two things to know about a public deployment. Its filesystem is ephemeral, so
 `checkpoints.sqlite` and `escalations.csv` reset when the app sleeps or
 redeploys, and conversation links stop resolving. And every visitor spends your
