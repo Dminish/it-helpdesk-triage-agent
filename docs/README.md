@@ -2,10 +2,11 @@
 
 Screenshots for the project README.
 
-## screenshot.png (missing)
+## screenshot.png
 
-Capture one conversation that shows **both** routing outcomes, since the split
-between them is the point of the project:
+Currently shows the escalation branch only. Worth replacing with one
+conversation that shows **both** routing outcomes, since the split between them
+is the point of the project:
 
 1. An answered issue, e.g. `"vpn keeps timing out"` -- shows the amber panel,
    the retrieved fix, and the confidence score in the metadata row.

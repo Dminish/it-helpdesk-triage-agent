@@ -15,13 +15,8 @@ refuses to answer when the manuals do not actually cover the question.
 Try `"wifi connects but nothing loads"` for the answer path and `"the production
 server room caught fire"` for an escalation.
 
-<!--
-SCREENSHOT: drop a PNG at docs/screenshot.png and uncomment the line below.
-Capture a conversation showing one answered issue and one escalation, so both
-panel styles and the confidence tag are visible.
-
-![The agent escalating a critical issue](docs/screenshot.png)
--->
+![A floor-wide printer outage classified as Hardware, critical, and escalated to
+the human queue instead of answered from the manuals](docs/screenshot.png)
 
 ## What this demonstrates
 
