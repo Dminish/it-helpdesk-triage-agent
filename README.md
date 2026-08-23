@@ -1,4 +1,4 @@
-# IT Helpdesk Triage & Routing Agent
+# DanTech IT Helpdesk Agent
 
 **[Live demo](https://it-triage-agent-by-dan.streamlit.app/)**
 
@@ -44,8 +44,9 @@ flowchart LR
     E --> L[("escalations.csv")]
 ```
 
-Both branches end in a reply to the user; escalations also append a row to the
-queue log.
+Both branches end in a reply to the user. Escalations also append a row to the
+queue log, tagged with the conversation's ticket reference (`DT-XXXXXX`) so a
+logged escalation can be traced back to the conversation that produced it.
 
 ## Stack
 

@@ -14,6 +14,7 @@ from typing import Annotated, Literal, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -192,6 +193,11 @@ def route_after_retrieve(state: AgentState) -> Literal["escalate", "answer"]:
     return "escalate" if state["confidence"] < CONFIDENCE_THRESHOLD else "answer"
 
 
+def ticket_ref(thread_id: str) -> str:
+    """Short human-quotable reference for a conversation, stable across turns."""
+    return "DT-" + "".join(c for c in thread_id if c.isalnum())[:6].upper()
+
+
 def turn_meta(state: AgentState, escalated: bool) -> dict:
     """Metadata carried on the reply itself, so a restored conversation still
     shows the tags that were displayed when it was first answered."""
@@ -204,27 +210,33 @@ def turn_meta(state: AgentState, escalated: bool) -> dict:
     }
 
 
-def escalate(state: AgentState) -> dict:
+def escalate(state: AgentState, config: RunnableConfig) -> dict:
+    ref = ticket_ref(config["configurable"]["thread_id"])
+
     if state["severity"] == "critical":
         trigger = "critical severity"
         answer_text = (
-            f"This looks critical ({state['category']}), escalated to the "
-            "human on-call queue. A technician will follow up shortly."
+            f"This looks critical ({state['category']}). I have escalated it to "
+            f"the on-call queue as {ref}, and a technician will follow up "
+            "directly. Quote that reference if you need to chase it."
         )
     else:
         trigger = "no confident manual match"
         answer_text = (
-            f"I couldn't find a confident match in the manuals for this "
-            f"{state['category']} issue, escalated to a human technician "
-            "rather than guess."
+            f"I could not find a confident match in the {state['category']} "
+            f"manuals for this, so rather than guess I have raised it as "
+            f"{ref} for a human technician to pick up."
         )
 
     is_new = not os.path.exists(ESCALATION_LOG)
     with open(ESCALATION_LOG, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if is_new:
-            writer.writerow(["timestamp", "category", "trigger", "issue", "reasoning"])
+            writer.writerow(
+                ["ticket", "timestamp", "category", "trigger", "issue", "reasoning"]
+            )
         writer.writerow([
+            ref,
             datetime.now(timezone.utc).isoformat(),
             state["category"],
             trigger,
