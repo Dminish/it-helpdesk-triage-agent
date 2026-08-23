@@ -1,8 +1,11 @@
-langgraph
-langgraph-checkpoint-sqlite
-langchain
-langchain-ollama
-langchain-openai
-pinecone
-streamlit
-python-dotenv
+# Upper bounds so a future major release cannot silently break a deployed demo.
+# Versions below are the ones the eval numbers in the README were measured on.
+langgraph>=1.2,<2
+langgraph-checkpoint-sqlite>=3.1,<4
+langchain-core>=1.6,<2
+langchain-ollama>=1.1,<2
+langchain-openai>=1.6,<2
+pinecone>=9.1,<10
+pydantic>=2.13,<3
+streamlit>=1.62,<2
+python-dotenv>=1.2,<2
