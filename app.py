@@ -182,6 +182,40 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 
 [data-testid="stExpander"] { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 
+/* ---- empty state ---- */
+.empty-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0.6rem 0 0.7rem 0;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 400;
+  padding: 0.6rem 0.9rem;
+  justify-content: flex-start !important;
+}
+/* Streamlit nests a full-width flex div inside the button and centres there, so
+   styling the button element alone has no effect on the label. */
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] button > div {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] button [data-testid="stMarkdownContainer"],
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] button p {
+  text-align: left !important;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] button:hover {
+  border-color: rgba(255,180,84,0.55);
+  color: var(--accent);
+}
+
 /* ---- landing ---- */
 .welcome { padding-top: 6vh; }
 .welcome h1 {
@@ -235,16 +269,22 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 """
 st.markdown(STYLE, unsafe_allow_html=True)
 
-# Wordmark for an invented brand: a simple geometric monogram beats a text-only
-# logo, and inline SVG keeps it theme-aware without an asset request.
+# The mark encodes what the product does rather than just its initial: one input
+# arriving from the left, a decision point, and two outcomes -- resolved (a
+# closed dot) and escalated (an open arm in the critical colour). A generic "D"
+# would say nothing about routing, which is the whole argument of the product.
 # Kept on one line: st.markdown renders indented HTML as a code block.
 MARK = (
     '<svg class="mark" width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">'
-    '<rect x="0.75" y="0.75" width="32.5" height="32.5" rx="8" fill="rgba(255,180,84,0.12)" '
-    'stroke="rgba(255,180,84,0.45)" stroke-width="1.5"/>'
-    '<path d="M11 10.5h5.2c3.9 0 6.3 2.5 6.3 6.5s-2.4 6.5-6.3 6.5H11V10.5z" stroke="#FFB454" '
-    'stroke-width="2.1" stroke-linejoin="round" fill="none"/>'
-    '<circle cx="23.4" cy="11.4" r="2.1" fill="#FFB454"/>'
+    '<rect x="0.75" y="0.75" width="32.5" height="32.5" rx="8" fill="rgba(255,180,84,0.10)" '
+    'stroke="rgba(255,180,84,0.42)" stroke-width="1.5"/>'
+    '<path d="M8 17h6.5" stroke="#FFB454" stroke-width="2.2" stroke-linecap="round"/>'
+    '<path d="M14.5 17c3.4 0 3.6-5 7-5" stroke="#FFB454" stroke-width="2.2" '
+    'stroke-linecap="round" fill="none"/>'
+    '<path d="M14.5 17c3.4 0 3.6 5 7 5" stroke="#FF6B6B" stroke-width="2.2" '
+    'stroke-linecap="round" fill="none"/>'
+    '<circle cx="24.6" cy="12" r="2.4" fill="#FFB454"/>'
+    '<circle cx="24.6" cy="22" r="2.4" fill="none" stroke="#FF6B6B" stroke-width="2.2"/>'
     "</svg>"
 )
 
@@ -392,7 +432,21 @@ for turn in st.session_state.display_history:
                 with st.expander("Why this classification?"):
                     st.write(turn["reasoning"])
 
-issue = st.chat_input("Describe your IT issue")
+EXAMPLES = [
+    "Wi-Fi connects but nothing loads",
+    "I'm locked out after too many password attempts",
+    "Nobody on the 3rd floor can print",
+]
+
+if not st.session_state.display_history:
+    st.markdown('<div class="empty-label">Common issues</div>', unsafe_allow_html=True)
+    for i, example in enumerate(EXAMPLES):
+        if st.button(example, key=f"eg{i}", use_container_width=True):
+            st.session_state.pending = example
+            st.rerun()
+
+# An example click and the chat box feed the same path.
+issue = st.chat_input("Describe your IT issue") or st.session_state.pop("pending", None)
 
 if issue:
     st.session_state.display_history.append({"role": "user", "content": issue})
