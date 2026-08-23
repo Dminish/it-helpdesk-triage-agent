@@ -65,7 +65,9 @@ def send_ticket_email(
         with smtplib.SMTP(host, port, timeout=15) as server:
             server.starttls()
             user = os.environ.get("SMTP_USER")
-            password = os.environ.get("SMTP_PASSWORD")
+            # Google shows app passwords in four blocks of four; the spaces are
+            # display formatting and SMTP auth fails if they are sent.
+            password = "".join(os.environ.get("SMTP_PASSWORD", "").split())
             if user and password:
                 server.login(user, password)
             server.send_message(message)
