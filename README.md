@@ -69,19 +69,23 @@ Account, written for this demo. It is not a real knowledge base.
 
 **Classifier** (`python eval_classifier.py`, 19 labelled tickets):
 
-| | `qwen2.5` (local) | `gpt-4o-mini` (hosted) |
-|---|---|---|
-| category | 18/19 | 18/19 |
-| severity | 18/19 | 19/19 |
+| | `qwen2.5` (local) | `gpt-4o-mini` | `gemini-3.5-flash-lite` (deployed) |
+|---|---|---|---|
+| category | 18/19 | 18/19 | **19/19** |
+| severity | 18/19 | 19/19 | **19/19** |
 
-Both models miss the same case, and it is a genuine judgement call left failing
-as a marker rather than relabelled to flatter the score: *"attacker has admin
-access to the domain controller"* is labelled `Account`, both models say
-`Network`. Severity is `critical` either way, so routing is unaffected.
+The two cases smaller models miss are both scope-judgement calls, and they were
+left failing as markers rather than relabelled to flatter the score:
 
-The local model additionally calls *"nobody on the 3rd floor can print"*
-`normal` where the label says `critical`; it appears to weigh printing as
-low-stakes regardless of scope, which is defensible. `gpt-4o-mini` gets it.
+- *"attacker has admin access to the domain controller"* is labelled `Account`;
+  `qwen2.5` and `gpt-4o-mini` both say `Network`. Severity is `critical` either
+  way, so routing is unaffected.
+- *"nobody on the 3rd floor can print"* is labelled `critical` because it
+  affects many users; `qwen2.5` says `normal`, apparently weighing printing as
+  low-stakes regardless of scope.
+
+`gemini-3.5-flash-lite` gets both, which is the main reason the deployed demo
+runs it.
 
 **Retrieval threshold** (`python eval_retrieval.py`, 23 labelled queries):
 
@@ -156,22 +160,26 @@ The [live demo](https://it-triage-agent-by-dan.streamlit.app/) runs this
 configuration.
 
 The agent runs on a local model by default, which needs hardware a free host
-does not have. Set `LLM_PROVIDER=openai` and it uses `gpt-4o-mini` instead;
-embeddings and the vector store are unchanged, so the calibrated retrieval
-threshold still applies.
+does not have. `LLM_PROVIDER=openai` swaps in a hosted model instead;
+embeddings and the vector store are unchanged either way, so the calibrated
+retrieval threshold still applies.
 
 On [Streamlit Community Cloud](https://share.streamlit.io), point it at
 `app.py` and add these under **Secrets**:
 
 ```toml
-OPENAI_API_KEY = "sk-..."
+OPENAI_API_KEY = "sk-..."          # embeddings
 PINECONE_API_KEY = "pcsk_..."
 PINECONE_INDEX = "it-helpdesk-manuals"
 LLM_PROVIDER = "openai"
+OPENAI_MODEL = "gpt-4o-mini"       # or any structured-output-capable model
 ```
 
 Run `python ingest.py` locally once beforehand; the deployed app reads the
 Pinecone index but does not populate it.
+
+The chat model and the embedding model are configured separately (see below),
+so they can live on different providers and different keys.
 
 ### Other models
 
@@ -193,11 +201,16 @@ The classifier needs a model that supports structured output. Anything without
 tool-calling or JSON-schema support fails schema validation rather than
 degrading gracefully, so run `eval_classifier.py` after switching.
 
+Gateways are worth checking rather than assuming: some proxy providers accept a
+model but do not forward structured-output requests to it, which surfaces as a
+400 on the first classification rather than at startup. A one-line
+`with_structured_output(...).invoke(...)` against the endpoint answers this
+before you deploy anything.
+
 Two things to know about a public deployment. Its filesystem is ephemeral, so
 `checkpoints.sqlite` and `escalations.csv` reset when the app sleeps or
 redeploys, and conversation links stop resolving. And every visitor spends your
-OpenAI credit, so set a usage limit on the API key rather than leaving it
-uncapped.
+API credit, so cap the key rather than leaving it uncapped.
 
 ## Limitations
 
