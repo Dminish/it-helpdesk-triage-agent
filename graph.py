@@ -7,6 +7,7 @@ classify -> escalate (critical)
 Conversation memory via a MemorySaver checkpointer keyed by thread_id.
 """
 import csv
+import hashlib
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -198,8 +199,15 @@ def route_after_retrieve(state: AgentState) -> Literal["escalate", "answer"]:
 
 
 def ticket_ref(thread_id: str) -> str:
-    """Short human-quotable reference for a conversation, stable across turns."""
-    return "DT-" + "".join(c for c in thread_id if c.isalnum())[:6].upper()
+    """Short human-quotable reference for a conversation, stable across turns.
+
+    Hashed rather than sliced from the thread id: slicing leaks whatever the id
+    happens to be, so a readable id like "smtp-live-test-01" produced the
+    distinctly un-ticket-like DT-SMTPLI. Hashing gives a uniform hex reference
+    for any input.
+    """
+    digest = hashlib.sha1(thread_id.encode("utf-8")).hexdigest()
+    return "DT-" + digest[:6].upper()
 
 
 def turn_meta(state: AgentState, escalated: bool) -> dict:
